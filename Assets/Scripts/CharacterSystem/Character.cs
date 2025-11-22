@@ -3,8 +3,9 @@ using UnityEngine;
 public abstract class Character : MonoBehaviour, IDamagable
 {
     [Header("Temel İstatistikler")]
-    [SerializeField] protected float currentHealth;
-    [SerializeField] protected float maxHealth;
+    [SerializeField]
+    public float currentHealth;
+    [SerializeField] public float maxHealth;
     [SerializeField] protected float movementSpeed;
     [SerializeField] protected float attackSpeed;
     [SerializeField] protected float baseDamage;
@@ -28,10 +29,31 @@ public abstract class Character : MonoBehaviour, IDamagable
     public float MovementSpeed => movementSpeed;
     public float CurrentGold => currentGold;
     public float CurrentXP => currentXP;
-    public int CurrentLevel => currentLevel; 
-    public float XPRequiredForNextLevel => xpRequiredForNextLevel; 
+    public int CurrentLevel => currentLevel;
+    public float XPRequiredForNextLevel => xpRequiredForNextLevel;
+
+    // --- DİĞER KRİTİK STATLAR ---
+
+    // Can Değerleri
+    public float MaxHealth => maxHealth;
+    public float CurrentHealth => currentHealth;
+
+    // Saldırı Değerleri
+    public float BaseDamage => baseDamage;
+    public float AttackDamage => attackDamage; // Geçici boost'lar için ek hasar
+    public float AttackSpeed => attackSpeed;
+    public float LifeSteal => lifeSteal;
+    public int ProjectileCount => projectileCount; // Eğer bu statı tutuyorsanız
+
+    // Toplama Menzili (Mıknatıs)
+    public float CollectRange => collectRange;
+
+    // Durum Kontrolü
     public bool IsAlive => _isAlive;
-    public GameObject gameObject => base.gameObject; 
+
+    // Unity Referans? (IDamagable arayüzü gerektirir)
+    public GameObject gameObject => base.gameObject;
+    
 
     // Karakterin tüm başlangıç istatistiklerini sıfırdan kurar.
     public virtual void Initialize()

@@ -9,4 +9,5 @@ public interface IDamagable
     // Nesnenin hayatta olup olmadığını gösteren salt okunur özellik.
     
     bool IsAlive { get; }
+    GameObject gameObject { get; }
 }

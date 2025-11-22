@@ -33,14 +33,14 @@ public class Enemy : MonoBehaviour, IDamagable
 
     // --- LOOT AYARLARI ---
     [Header("Loot (Düşen Eşyalar)")]
-    public GameObject xpDropPrefab;   // Kesin düşer
-    public GameObject goldDropPrefab; // Şansla düşer
+    public GameObject xpDropPrefab;
+    public GameObject goldDropPrefab;
     
     [Range(0, 100)] 
     [SerializeField] private int goldDropChance = 50; 
 
     [Header("Özel Özellikler")]
-    public GameObject[] featureDropPrefabs; // Bomb, Magnet, Rage
+    public GameObject[] featureDropPrefabs; 
     [Range(0, 100)] 
     [SerializeField] private int featureDropChance = 15;
 
@@ -58,8 +58,6 @@ public class Enemy : MonoBehaviour, IDamagable
         if (navAgent != null) navAgent.stoppingDistance = attackRange * 0.8f;
     }
 
-    // Object Pool kullandığımız için Start yerine Spawn metodunu dışarıdan çağırıyoruz.
-    
     private void Update()
     {
         // Ölü, doğuyor veya saldırıyorsa hareket mantığını çalıştırma
@@ -89,7 +87,6 @@ public class Enemy : MonoBehaviour, IDamagable
     private void HandleAnimations()
     {
         if (animator == null || navAgent == null) return;
-        // Hareket hızına göre koşma animasyonunu tetikle
         bool isMoving = navAgent.velocity.magnitude > 0.1f && !navAgent.isStopped;
         animator.SetBool("IsRunning", isMoving);
     }
@@ -97,7 +94,6 @@ public class Enemy : MonoBehaviour, IDamagable
     // --- OBJECT POOL: RESETLEME VE BAŞLATMA ---
     /// <summary>
     /// Düşman havuzdan çekildiğinde Spawner tarafından çağrılır.
-    /// Tüm değerleri sıfırlar ve başlatır.
     /// </summary>
     public void Spawn()
     {
@@ -133,16 +129,13 @@ public class Enemy : MonoBehaviour, IDamagable
 
         if (animator != null) 
         {
-            // Animasyon parametrelerini temizle ve Spawn'ı tetikle
             animator.Rebind(); 
             animator.SetTrigger("Spawn");
         }
 
-        // Doğma animasyonu süresince bekle
         yield return new WaitForSeconds(spawnAnimationDuration);
 
         isSpawning = false;
-        // Eğer doğarken ölmediyse harekete başla
         if (navAgent != null && _isAlive) navAgent.isStopped = false;
     }
 
@@ -154,10 +147,6 @@ public class Enemy : MonoBehaviour, IDamagable
         
         if (navAgent.isStopped) navAgent.isStopped = false;
         
-        // Basit yönelim
-        // Vector3 lookPos = targetPlayer.position; lookPos.y = transform.position.y;
-        // transform.LookAt(lookPos);
-        
         navAgent.SetDestination(targetPlayer.position);
     }
     
@@ -165,7 +154,6 @@ public class Enemy : MonoBehaviour, IDamagable
     {
         if (targetPlayer == null) return;
 
-        // Saldırı pozisyonunu al ve dur
         if (navAgent != null) 
         {
             navAgent.isStopped = true;
@@ -176,7 +164,6 @@ public class Enemy : MonoBehaviour, IDamagable
         
         attackTimer += Time.deltaTime;
         
-        // Saldırı hızı kontrolü
         if (attackTimer >= 1f / attackSpeed)
         {
             attackTimer = 0f;
@@ -189,14 +176,12 @@ public class Enemy : MonoBehaviour, IDamagable
         isAttacking = true;
         if (animator != null) animator.SetTrigger("Attack");
         
-        // Vuruş anına kadar bekle
         yield return new WaitForSeconds(attackAnimDelay);
 
-        // Hâlâ menzilde mi kontrol et ve hasar ver
+        // Hasar verme anı
         if (targetPlayer != null)
         {
             float distance = Vector3.Distance(transform.position, targetPlayer.position);
-            // Animasyon sırasında oyuncu biraz kaçmış olabilir, toleranslı kontrol
             if (distance <= attackRange + 1.5f) 
             {
                 if (targetPlayer.TryGetComponent(out IDamagable target)) 
@@ -206,7 +191,6 @@ public class Enemy : MonoBehaviour, IDamagable
             }
         }
         
-        // Animasyonun bitişini bekle (kısa bir süre)
         yield return new WaitForSeconds(0.2f); 
         isAttacking = false;
     }
@@ -216,10 +200,19 @@ public class Enemy : MonoBehaviour, IDamagable
     public void TakeDamage(float val)
     {
         if (!IsAlive) return;
+
+        // NavAgent'ın aktif olup olmadığını kontrol et (Hasar alımını etkilemez ama iyi bir kontrol)
+        if (navAgent != null && navAgent.enabled == false)
+        {
+            // Eğer NavAgent kapalıysa, düşman havuza dönüyor olabilir veya yanlış durumda olabilir.
+            Debug.LogWarning("Düşman hasar aldı ama NavAgent kapalıydı.");
+        }
+
         currentHealth -= val;
         currentHealth = Mathf.Max(currentHealth, 0f);
-        
-        // Hasar alma efekti veya animasyonu buraya eklenebilir (animator.SetTrigger("Hit"))
+    
+        // !!! DEBUG: Hasar alındığını ve kalan canı onayla !!!
+        Debug.Log($"DÜŞMAN HASAR ALDI! Kalan Can: {currentHealth}"); 
 
         if (currentHealth <= 0)
         {
@@ -234,14 +227,21 @@ public class Enemy : MonoBehaviour, IDamagable
         
         // 1. Loot Düşür
         DropLoot(); 
+        
+        // OYUNCUYA KILL SAYISINI BİLDİR (Düzeltilmiş Tip)
+        GameObject playerObj = GameObject.FindWithTag("Player");
+        if (playerObj != null && playerObj.TryGetComponent(out Player player)) // Player yerine PlayerCharacter kullanıldı
+        {
+            player.AddKill(); 
+        }
 
         // 2. Bileşenleri Kapat
         if (navAgent != null) navAgent.isStopped = true;
-        if (enemyCollider != null) enemyCollider.enabled = false; // Cesede vurulmasını engelle
+        if (enemyCollider != null) enemyCollider.enabled = false; 
 
         Debug.Log($"{gameObject.name} öldü ve havuza döndü.");
 
-        // 3. Object Pool İçin Kapat (Destroy yerine Disable)
+        // 3. Object Pool İçin Kapat
         gameObject.SetActive(false); 
     }
     
@@ -285,29 +285,25 @@ public class Enemy : MonoBehaviour, IDamagable
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, attackRange);
     }
-    
-    // Debug için health bar
     protected virtual void OnGUI()
     {
         if (!IsAlive)
             return;
-
+        
         Vector3 worldPos = transform.position + Vector3.up * 2f;
         Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
-
+        
         if (screenPos.z > 0)
         {
             float healthPercent = currentHealth / maxHealth;
             Rect barRect = new Rect(screenPos.x - 25, Screen.height - screenPos.y - 10, 50, 5);
-
             GUI.color = Color.black;
             GUI.DrawTexture(barRect, Texture2D.whiteTexture);
-
             barRect.width *= healthPercent;
             GUI.color = Color.Lerp(Color.red, Color.green, healthPercent);
             GUI.DrawTexture(barRect, Texture2D.whiteTexture);
-
             GUI.color = Color.white;
         }
+
     }
 }

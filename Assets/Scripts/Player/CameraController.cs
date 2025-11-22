@@ -23,8 +23,8 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float positionSmoothTime = 0.1f; // Pozisyon yumu?akl???
 
     [Header("Collision Detection")]
-    [SerializeField] private bool checkCollision = true; // Duvardan ge�me kontrol�
-    [SerializeField] private LayerMask collisionLayers; // Hangi layerlarla �arp??ma kontrol� yap?lacak
+    [SerializeField] private bool checkCollision = true; // Duvardan geme kontrol
+    [SerializeField] private LayerMask collisionLayers; // Hangi layerlarla arp??ma kontrol yap?lacak
     [SerializeField] private float collisionOffset = 0.3f; // Duvar yak?nl??? offset
 
     [Header("Input Actions")]
@@ -33,8 +33,8 @@ public class CameraController : MonoBehaviour
     private InputAction lookAction;
     private InputAction zoomAction;
 
-    private float currentYaw = 0f; // Yatay a�?
-    private float currentPitch = 20f; // Dikey a�?
+    private float currentYaw = 0f; // Yatay a?
+    private float currentPitch = 20f; // Dikey a?
 
     private float targetYaw = 0f;
     private float targetPitch = 20f;
@@ -46,6 +46,7 @@ public class CameraController : MonoBehaviour
 
     private void Awake()
     {
+        // Cursor'u kitleme ve gizleme Awake'te yap?lmas? do?ru
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         
@@ -62,7 +63,7 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        // Ba?lang?� rotasyonunu ayarla
+        // Ba?lang? rotasyonunu ayarla
         if (target != null)
         {
             Vector3 angles = transform.eulerAngles;
@@ -71,10 +72,6 @@ public class CameraController : MonoBehaviour
             targetYaw = currentYaw;
             targetPitch = currentPitch;
         }
-
-        // Cursor'u kilitle
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
     }
 
     private void OnEnable()
@@ -107,12 +104,26 @@ public class CameraController : MonoBehaviour
 
     private void OnZoom(InputAction.CallbackContext context)
     {
-        float scrollValue = context.ReadValue<float>();
-        distance = Mathf.Clamp(distance - scrollValue * zoomSpeed * 0.1f, minDistance, maxDistance);
+        // Ykseltme paneli a?k de?ilse zoom yap
+        if (Time.timeScale > 0f)
+        {
+            float scrollValue = context.ReadValue<float>();
+            //distance = Mathf.Clamp(distance - scrollValue * zoomSpeed * 0.1f, minDistance, maxDistance); // Orijinal Kod
+            // Not: distance'a anl?k atama yap?ld??? iin zoom yumuşak de?il, ancak kodu koruyoruz.
+            distance = Mathf.Clamp(distance - scrollValue * zoomSpeed * 0.1f, minDistance, maxDistance);
+        }
     }
 
     private void LateUpdate()
     {
+        // --- KRİTİK ÇÖZÜM: OYUN DURDUĞUNDA HESAPLAMAYI ENGELLE ---
+        if (Time.timeScale == 0f) 
+        {
+            // SmoothDamp işlemleri Time.deltaTime'a bağlıdır. Oyunu durdur.
+            return;
+        }
+        // -----------------------------------------------------------
+
         if (target == null)
             return;
 
@@ -120,15 +131,17 @@ public class CameraController : MonoBehaviour
         Vector2 lookInput = Vector2.zero;
         if (lookAction != null)
         {
+            // Look inputunu Time.deltaTime ile arpmadan al?yoruz, LateUpdate iinde hassasiyet ayarlan?r
             lookInput = lookAction.ReadValue<Vector2>();
         }
 
-        // Kamera a�?lar?n? g�ncelle
-        targetYaw += lookInput.x * mouseSensitivity;
-        targetPitch -= lookInput.y * mouseSensitivity;
+        // Kamera a?lar?n? gncelle (Input'u LateUpdate'te i?liyoruz, bu yayg?n bir pratik)
+        // NOT: mouseSensitivity ile arpma i?lemini burada Time.deltaTime ile yapmal?y?z
+        targetYaw += lookInput.x * mouseSensitivity * Time.deltaTime * 60f; // 60f sabiti, deltaTime'a ba?l? input hassasiyeti iin.
+        targetPitch -= lookInput.y * mouseSensitivity * Time.deltaTime * 60f;
         targetPitch = Mathf.Clamp(targetPitch, minVerticalAngle, maxVerticalAngle);
 
-        // Smooth rotasyon
+        // Smooth rotasyon (Mathf.SmoothDampAngle)
         currentYaw = Mathf.SmoothDampAngle(currentYaw, targetYaw, ref yawVelocity, rotationSmoothTime);
         currentPitch = Mathf.SmoothDampAngle(currentPitch, targetPitch, ref pitchVelocity, rotationSmoothTime);
 
@@ -139,7 +152,7 @@ public class CameraController : MonoBehaviour
         // Kameran?n hedef pozisyonu (karakterin arkas?nda)
         Vector3 desiredPosition = targetPosition - (rotation * Vector3.forward * distance);
 
-        // �arp??ma kontrol�
+        // arp??ma kontrol
         float finalDistance = distance;
         if (checkCollision)
         {
@@ -153,16 +166,19 @@ public class CameraController : MonoBehaviour
         // Final pozisyon
         Vector3 finalPosition = targetPosition - (rotation * Vector3.forward * finalDistance);
 
-        // Smooth pozisyon ge�i?i
+        // Smooth pozisyon gei?i (Vector3.SmoothDamp)
         transform.position = Vector3.SmoothDamp(transform.position, finalPosition, ref currentVelocity, positionSmoothTime);
 
         // Kameray? hedefe bakt?r
         transform.LookAt(targetPosition);
     }
 
-    // ESC tu?uyla cursor'u g�ster/gizle (debug i�in)
+    // ESC tu?uyla cursor'u gster/gizle (debug iin)
     private void Update()
     {
+        // Ykseltme paneli a?ksa ESC ile cursor'u ama/kapama i?levini durdur
+        if (Time.timeScale == 0f) return; 
+
         if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             if (Cursor.lockState == CursorLockMode.Locked)
@@ -178,7 +194,7 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    // Gizmos ile debug g�rselle?tirmesi
+    // Gizmos ile debug grselle?tirmesi
     private void OnDrawGizmosSelected()
     {
         if (target == null)
